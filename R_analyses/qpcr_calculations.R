@@ -1,91 +1,87 @@
 #### Calculation of Xf populations (CFUs) in vectors from qPCR runs
+#### Cq values are calculated from LinRegPCR software program....
+#### based on the analysis of Ruijter et al. (2009) Nucleic Acids Research
 
 rm(list = ls())
 # libraries
-# loading dtplyr that replaces dplyr and data.table
-my.packages <- c("xlsx", "tidyr", "dplyr", "ggplot2")
+# replaced package xlsx with openxlsx because the latter doesn't rely on rJava which was causing problems
+my.packages <- c("openxlsx", "tidyr", "dplyr", "ggplot2")
 lapply(my.packages, require, character.only = TRUE)
 
 source("R_functions/qpcrFunctions.R")
 
+# Directory for qPCR data
+qpcrDir <- "data/qpcr_data/"
 
 #### Import serial dilution
 serial_dilution <- read.csv("data/qpcr_data/serial_dilution_cfu.csv", header = TRUE)
 
 #### First qpcr run
 #### Import plate setup and transform plate setups
-exp1ps <- read.xlsx("data/qpcr_data/101416-BGSS-expe1_plate_setup.xlsx", sheetIndex = 1) 
+exp1ps <- read.xlsx("data/qpcr_data/101416-BGSS-expe1_plate_setup.xlsx", sheet = 1) 
 exp1ps <- transformPlateSetup(exp1ps)
 
-#### Import data
-exp1ct <- read.csv("data/qpcr_data/101416-BGSS-expe1.csv", header = TRUE)
+#### Import qpcr data from LinRegPCR
+exp1ct <- readLinReg(file = "101416_BGSS_expe1_linreg.xlsx", dir = qpcrDir)
 
 #### Merge plate setup and Ct data
-exp1ct <- exp1ct %>% left_join(., exp1ps[,c("Well", "sample")], by = "Well") %>% dplyr::filter(., !is.na(sample))
+exp1ct <- exp1ct %>% left_join(., exp1ps[,c("wellNumber", "sample")], by = "wellNumber") %>% dplyr::filter(., !is.na(sample))
 str(exp1ct)
 
 # Calculate CFUs from standard curve
-exp1cfu <- calculateCFU(ctdata = exp1ct, serial_dilution = serial_dilution, getModel = TRUE)
+# Using standard curve data from HL5/HL6 primers for Xylella fastidiosa spiked with BGSS extract
+
+exp1cfu <- calculateCFU(qpcrdata = exp1ct, serial_dilution = serial_dilution, getModel = TRUE)
 exp1Mod <- exp1cfu[[1]]
 exp1cfu <- exp1cfu[[2]]
+exp1Mod
 exp1cfu
 # Checking results and standard curve coefficients
-# Compare estimated CFU
-plot(x = exp1cfu$Qty, y = exp1cfu$cfu)
-abline(a = 0, b = 1)
-# Standard curve estimates: slope = -4.179; intercept = 49.11; R2 = 0.976
-diff <- exp1cfu$Qty - exp1cfu$cfu
-hist(diff)
 
-write.csv(exp1cfu, file = "output/experiment_1_cfu.csv", row.names = FALSE)
+write.csv(exp1cfu, file = "output/experiment_1_cfu_linreg.csv", row.names = FALSE)
 
 #### Second qpcr run
 #### Import plate setup and transform plate setups
-exp2ps <- read.xlsx("data/qpcr_data/101916-BGSS-expe_plate_setup.xlsx", sheetIndex = 1) %>% transformPlateSetup()
+exp2ps <- read.xlsx("data/qpcr_data/101916-BGSS-expe_plate_setup.xlsx", sheet = 1) %>% transformPlateSetup()
 
 #### Import data
-exp2ct <- read.csv("data/qpcr_data/101916-BGSS-exp2.csv", header = TRUE)
+exp2ct <- readLinReg(file = "101916_BGSS_exp2_linreg.xlsx", dir = qpcrDir)
 
 #### Merge plate setup and Ct data
-exp2ct <- exp2ct %>% left_join(., exp2ps[,c("Well", "sample")], by = "Well") %>% dplyr::filter(., !is.na(sample))
+exp2ct <- exp2ct %>% left_join(., exp2ps[,c("wellNumber", "sample")], by = "wellNumber") %>% dplyr::filter(., !is.na(sample))
 str(exp2ct)
 
 # Calculate CFUs from standard curve
-exp2cfu <- calculateCFU(ctdata = exp2ct, serial_dilution = serial_dilution, getModel = TRUE)
+exp2cfu <- calculateCFU(qpcrdata = exp2ct, serial_dilution = serial_dilution, getModel = TRUE)
 exp2Mod <- exp2cfu[[1]]
 exp2cfu <- exp2cfu[[2]]
+exp2Mod
 exp2cfu
-# Checking results and standard curve coefficients
-# Compare estimated CFU
-plot(x = exp2cfu$Qty, y = exp2cfu$cfu)
-abline(a = 0, b = 1)
-# Standard curve estimates: slope = -4.179; intercept = 49.11; R2 = 0.976
-diff <- exp2cfu$Qty - exp2cfu$cfu
-hist(diff)
 
 
 #### Third qpcr run
 #### No standard curve constructed within qpcr program
 #### Import plate setup and transform plate setups
-exp3ps <- read.xlsx("data/qpcr_data/102016_BGSS_expe_plate_setup.xlsx", sheetIndex = 1) %>% transformPlateSetup()
+exp3ps <- read.xlsx("data/qpcr_data/102016_BGSS_expe_plate_setup.xlsx", sheet = 1) %>% transformPlateSetup()
 
 #### Import data
-exp3ct <- read.csv("data/qpcr_data/102016-BGSS-exp3.csv", header = TRUE)
+exp3ct <- readLinReg(file = "102016_BGSS_exp3_linreg.xlsx", dir = qpcrDir)
 
 #### Merge plate setup and Ct data
-exp3ct <- exp3ct %>% left_join(., exp3ps[,c("Well", "sample")], by = "Well") %>% dplyr::filter(., !is.na(sample))
+exp3ct <- exp3ct %>% left_join(., exp3ps[,c("wellNumber", "sample")], by = "wellNumber") %>% dplyr::filter(., !is.na(sample))
 str(exp3ct)
 
 # Calculate CFUs from standard curve
-exp3cfu <- calculateCFU(ctdata = exp3ct, serial_dilution = serial_dilution, getModel = TRUE)
+exp3cfu <- calculateCFU(qpcrdata = exp3ct, serial_dilution = serial_dilution, getModel = TRUE)
 exp3Mod <- exp3cfu[[1]]
 exp3cfu <- exp3cfu[[2]]
+exp3Mod
 exp3cfu
 
 
 #### Combine data from qPCR runs and save data
 pcrResults <- rbind(exp1cfu, exp2cfu, exp3cfu) %>% as.data.frame()
-saveRDS(pcrResults, file = "output/dsf_acquisition_qpcr_cfu_results.rds")
+saveRDS(pcrResults, file = "output/dsf_acquisition_qpcr_cfu_linreg_results.rds")
 
 # check negative control
 pcrResults[pcrResults$sample == "NTC",]
