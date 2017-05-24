@@ -1,6 +1,7 @@
 #### Hierarchical Bayesian model for transmission analysis
 
 #### Attempt in nimble first
+rm(list = ls())
 
 my_packages<-c('tidyr', 'dplyr', 'data.table', 'nimble', 'coda')
 lapply(my_packages, require, character.only=T)
@@ -15,7 +16,7 @@ acqdat$distance <- acqdat$distance*2.54
 acqdat$sample <- acqdat %>% with(., paste(genotype, rep, cage, sep=""))
 
 #### qPCR data set 
-pcrResults <- readRDS("output/dsf_acquisition_qpcr_cfu_results.rds")
+pcrResults <- readRDS("output/dsf_acquisition_qpcr_cfu_linreg_results.rds")
 pcrResults$sample <- gsub(pattern = " ", replacement = "", x = pcrResults$sample)
 # Remove non-plant samples and select only sample and CFU columns
 pcrResults <- pcrResults[grep("F", pcrResults$sample),] %>% dplyr::select(., sample, cfu)
@@ -33,12 +34,39 @@ names(pcrSpread) <- c("sample", "cfu1", "cfu2")
 # Average the replicates for each sample
 pcrSpread$meancfu <- rowMeans(pcrSpread[,c("cfu1", "cfu2")], na.rm = TRUE)
 
+##############################################################################################
+#### Comparing linReg results to previous results for CFUs
+oldResults <- readRDS("output/dsf_acquisition_qpcr_cfu_results.rds")
+oldResults$sample <- gsub(pattern = " ", replacement = "", x = oldResults$sample)
+# Remove non-plant samples and select only sample and CFU columns
+oldResults <- oldResults[grep("F", oldResults$sample),] %>% dplyr::select(., sample, cfu)
+# Create replicate column
+oldResults$rep <- NA
+for(i in 1:length(unique(oldResults$sample))){
+  sample.i <- unique(oldResults$sample)[i]
+  data.i <- which(oldResults$sample == sample.i)
+  oldResults$rep[data.i] <- c(1:length(data.i))
+}
+
+qpcrDiff <- full_join(pcrResults, oldResults, by = c("sample", "rep"))
+# Compare CFUs
+plot(x = qpcrDiff$cfu.x, y = qpcrDiff$cfu.y, xlab = "CFUs from LinRegPCR", ylab = "Uncorrected CFUs")
+abline(a = 0, b = 1, lty = 2)
+#### Note: LinRegPCR puts more samples as zero than my CFU calculations. My numbers are generally biased upward too.
+############################################################################################
+
+
 #### combine acquisition data and qpcr data by sample (genotype, cage, rep combination)
 acqdat <- acqdat %>% full_join(., pcrSpread, by = "sample")
 
 #### Set up factor variables
-acqdat$genotypeFactor <- acqdat$genotype %>% factor(., levels = unique(.)) %>% as.numeric()
+acqdat$genotypeFactor <- acqdat$genotype %>% factor(.) %>% as.numeric()
+# Double check that factor levels are correct
+data.frame(acqdat$genotype, acqdat$genotypeFactor)
+# Make interaction variable
 acqdat <- mutate(acqdat, genotype_distance = genotypeFactor*distance)
+
+saveRDS(acqdat, file = "output/dsf_acquisition_pcr_full_data_set.rds")
 
 #### standardize continuous covariates
 # I don't think I need to log transform Xf populations
@@ -59,12 +87,12 @@ str(acqdat)
 #### More cleaning of data
 # include a plant term for the random effect
 acqdat$plant <- paste(acqdat$genotype, acqdat$rep, sep = "") %>% factor()
-# Remove cages placed below the point of inoculation
+# Remove cages placed below the point of inoculation and an outlier above 100 cm
 acqdat <- acqdat %>% dplyr::filter(., distance >= 0 & distance < 100)
 
 
 N <- nrow(acqdat)
-acqdat$plantID <- acqdat$plant %>% factor(., levels = unique(.)) %>% as.numeric()
+acqdat$plantID <- acqdat$plant %>% factor(.) %>% as.numeric()
 nplant <- acqdat$plantID %>% unique() %>% length()
 
 nimbleTransData <- with(acqdat,
@@ -77,8 +105,30 @@ nimbleTransData <- with(acqdat,
                              xf_vector = meancfu, # response variables don't need to be standardized
                              infected = test.plant.infection,
                              plantID = acqdat$plantID))
+
 saveRDS(nimbleTransData, "output/hierarchical_transmission_nimble_data.rds")
 
+nimbleTransData <- readRDS("output/hierarchical_transmission_nimble_data.rds")
+str(nimbleTransData)
+
+#### Exporting the data set for nimble and metadata describing the data set
+metadata <- c("N = total sample size",
+              "nplant = number of distinct source plants. Two insects were caged on each source plant, so source plant ID needs to be included as a random effect",
+              "genotype = factor variable on genotype of source plant: 1 = DSF, 2 = WT",
+              "distance = distance along stem of source plant from point of inoculation to where insect was caged (in cm)",
+              "genotype_distance = interaction between genotype and distance",
+              "xf_source_plant = estimated population of Xylella (the bacteria) in the source plant where the insect was caged",
+              "xf_vector = estimated population of Xylella in the insect vector",
+              "infected = binary variable indicating if the test plant was infected (1) or not infected (0)",
+              "plantID = ID of source plant, for random effect",
+              "Note: distance and genotype_distance are standardized around the mean and scaled by their standard deviation. Other variables are not standardized.")
+
+dsfData <- list(metadata = metadata, dsfData = nimbleTransData)
+saveRDS(dsfData, file = "output/dsf_data_for_nimble.rds")
+
+
+data3 <- data.frame(genotype = nimbleTransData$genotype,
+                    infected = nimbleTransData$infected)
 
 ####################################################################################################
 #### Define model in BUGS/NIMBLE language
