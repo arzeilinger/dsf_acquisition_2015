@@ -15,7 +15,7 @@ acqdat$distance <- acqdat$distance*2.54
 acqdat$sample <- acqdat %>% with(., paste(genotype, rep, cage, sep=""))
 
 #### qPCR data set 
-pcrResults <- readRDS("output/dsf_acquisition_qpcr_cfu_results.rds")
+pcrResults <- readRDS("output/dsf_acquisition_qpcr_cfu_linreg_results.rds")
 pcrResults$sample <- gsub(pattern = " ", replacement = "", x = pcrResults$sample)
 table(pcrResults$sample)
 # Average the replicates for each sample
@@ -139,8 +139,8 @@ xfpopMod.G <- glmer(test.plant.infection ~ genotype + (1|plant),
                    #                        optCtrl = list(method = optimizer)))
 
 AICctab(xfpopModFull, xfpopMod2, xfpopMod3, xfpopMod4, xfpopMod.G, base = TRUE)
-# Best model includes vector xf pops and source xf pops
-xfpopMod2 %>% summary()
+# xfpopMod2 and xfpopMod4 are equivalent but xfpopMod2 has convergence issues, go with xfpopMod4
+xfpopMod4 %>% summary()
 
 #### Model selection when dropping interactions
 xfpopMod2.noIntrxn <- glmer(test.plant.infection ~ genotype + std.log.source.plant.pop + std.log.meancfu + (1|plant), 
