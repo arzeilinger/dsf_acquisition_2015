@@ -55,10 +55,13 @@ exp2ct <- exp2ct %>% left_join(., exp2ps[,c("wellNumber", "sample")], by = "well
 str(exp2ct)
 
 # Calculate CFUs from standard curve
-exp2cfu <- calculateCFU(qpcrdata = exp2ct, serial_dilution = serial_dilution, getModel = TRUE)
-exp2Mod <- exp2cfu[[1]]
-exp2cfu <- exp2cfu[[2]]
-exp2Mod
+exp2Results <- calculateCFU(qpcrdata = exp2ct, serial_dilution = serial_dilution, getModel = TRUE)
+exp2scurve <- exp2Results[[1]]
+exp2Mod <- exp2Results[[2]]
+exp2cfu <- exp2Results[[3]]
+# Look at results, plot standard curve
+plot(x = log10(exp2scurve$cfu), y = log10(exp2scurve$N0))
+summary(exp2Mod)
 exp2cfu
 
 
@@ -75,10 +78,13 @@ exp3ct <- exp3ct %>% left_join(., exp3ps[,c("wellNumber", "sample")], by = "well
 str(exp3ct)
 
 # Calculate CFUs from standard curve
-exp3cfu <- calculateCFU(qpcrdata = exp3ct, serial_dilution = serial_dilution, getModel = TRUE)
-exp3Mod <- exp3cfu[[1]]
-exp3cfu <- exp3cfu[[2]]
-exp3Mod
+exp3Results <- calculateCFU(qpcrdata = exp3ct, serial_dilution = serial_dilution, getModel = TRUE)
+exp3scurve <- exp3Results[[1]]
+exp3Mod <- exp3Results[[2]]
+exp3cfu <- exp3Results[[3]]
+# Look at results, plot standard curve
+plot(x = log10(exp3scurve$cfu), y = log10(exp3scurve$N0))
+summary(exp3Mod)
 exp3cfu
 
 
