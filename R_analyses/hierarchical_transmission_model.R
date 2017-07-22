@@ -62,6 +62,7 @@ acqdat <- acqdat %>% full_join(., pcrSpread, by = "sample")
 #### Set up factor variables
 acqdat$genotypeFactor <- acqdat$genotype %>% factor(.) %>% as.numeric()
 # Double check that factor levels are correct
+# Correct alignment is FT = 1, FW = 2
 data.frame(acqdat$genotype, acqdat$genotypeFactor)
 # Make interaction variable
 acqdat <- mutate(acqdat, genotype_distance = genotypeFactor*distance)
@@ -126,6 +127,8 @@ metadata <- c("N = total sample size",
 dsfData <- list(metadata = metadata, dsfData = nimbleTransData)
 saveRDS(dsfData, file = "output/dsf_data_for_nimble.rds")
 
+# Save to DT's 'zeilinger_grapevine' repo
+saveRDS(dsfData, file = "../../zeilinger_grapevine/data/dsf_data_for_nimble.rds")
 
 data3 <- data.frame(genotype = nimbleTransData$genotype,
                     infected = nimbleTransData$infected)
