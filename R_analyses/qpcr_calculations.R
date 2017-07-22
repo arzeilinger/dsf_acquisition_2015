@@ -31,10 +31,13 @@ str(exp1ct)
 # Calculate CFUs from standard curve
 # Using standard curve data from HL5/HL6 primers for Xylella fastidiosa spiked with BGSS extract
 
-exp1cfu <- calculateCFU(qpcrdata = exp1ct, serial_dilution = serial_dilution, getModel = TRUE)
-exp1Mod <- exp1cfu[[1]]
-exp1cfu <- exp1cfu[[2]]
-exp1Mod
+exp1Results <- calculateCFU(qpcrdata = exp1ct, serial_dilution = serial_dilution, getModel = TRUE)
+exp1scurve <- exp1Results[[1]]
+exp1Mod <- exp1Results[[2]]
+exp1cfu <- exp1Results[[3]]
+# plot standard curve
+plot(x = log10(exp1scurve$cfu), y = log10(exp1scurve$N0))
+summary(exp1Mod)
 exp1cfu
 # Checking results and standard curve coefficients
 
