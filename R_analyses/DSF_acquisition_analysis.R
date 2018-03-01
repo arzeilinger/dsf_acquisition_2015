@@ -36,8 +36,10 @@ for(i in covars.i){
   acqdat[,stdname.i] <- stdvar.i
 }
 
-######################################################################
+###########################################################################################################
 #### Transmission (test plant infection) results
+###########################################################################################################
+
 acqdat <- acqdat %>% dplyr::filter(., !is.na(test.plant.infection) & !is.na(distance) & !is.na(meancfu))
 # include a plant term for the random effect
 acqdat$plant <- paste(acqdat$genotype, acqdat$rep, sep = "") %>% factor()
@@ -51,26 +53,29 @@ acqdat <- acqdat[acqdat$distance < 100,]
 #### Model selection to determine if models with cage or distance fit better
 dsfModCage <- glmer(test.plant.infection ~ inoculation.date + genotype*cage*std.log.meancfu + (1|plant), 
                     data = acqdat, family = "binomial",
-                    control = glmerControl(optimizer = "bobyqa"))
+                    control = glmerControl(optimizer = "Nelder_Mead"))
 dsfModDistance <- glmer(test.plant.infection ~ inoculation.date + genotype*std.distance*std.log.meancfu + (1|plant), 
                         data = acqdat, family = "binomial",
-                        control = glmerControl(optimizer = "bobyqa"))
+                        control = glmerControl(optimizer = "Nelder_Mead"))
 AICctab(dsfModCage, dsfModDistance, base = TRUE)
 # No difference between models with cage and distance effects
 
-#### GLMM with cage nested in plant 
+#### GLMM with plant as random effect and dropping inoculation.date
+dsfModFull <- glmer(test.plant.infection ~ genotype*std.distance*std.log.meancfu + (1|plant), 
+                    data = acqdat, family = "binomial",
+                    control = glmerControl(optimizer = "Nelder_Mead"))
 dsfMod2 <- glmer(test.plant.infection ~ genotype*std.distance + (1|plant), 
                 data = acqdat, family = "binomial",
-                control = glmerControl(optimizer = "bobyqa"))
+                control = glmerControl(optimizer = "Nelder_Mead"))
 dsfMod3 <- glmer(test.plant.infection ~ genotype*std.log.meancfu + (1|plant), 
                 data = acqdat, family = "binomial",
-                control = glmerControl(optimizer = "bobyqa"))
+                control = glmerControl(optimizer = "Nelder_Mead"))
 dsfMod.G <- glmer(test.plant.infection ~ genotype + (1|plant), 
                 data = acqdat, family = "binomial",
-                control = glmerControl(optimizer = "bobyqa"))
+                control = glmerControl(optimizer = "Nelder_Mead"))
 
 # Compare reduced models to both full model with distance and with cage
-AICctab(dsfModDistance, dsfModCage, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
+AICctab(dsfModDistance, dsfModCage, dsfModFull, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
 # dsfMod3 seems best -- no distance/cage effect
 plot(dsfMod3)
 summary(dsfMod3)
@@ -78,25 +83,10 @@ summary(dsfMod3)
 #### Best model with and without interactions
 dsfMod3.noInterxn <- glmer(test.plant.infection ~ genotype + std.log.meancfu + (1|plant), 
                                       data = acqdat, family = "binomial",
-                                      control = glmerControl(optimizer = "bobyqa"))
-AICctab(dsfMod3, dsfMod3.noInterxn, base = TRUE)
+                                      control = glmerControl(optimizer = "Nelder_Mead"))
+AICctab(dsfModDistance, dsfModFull, dsfMod2, dsfMod3, dsfMod.G, dsfMod3.noInterxn, base = TRUE)
 summary(dsfMod3.noInterxn)
 
-
-#### Model with combined genotype and cage, for contrast. But contrast doesn't work
-acqdat$genotype.cage <- with(acqdat, factor(paste(genotype, cage, sep = ".")))
-dsfMod3.cage <- glmer(test.plant.infection ~ genotype.cage*std.log.meancfu + (1|plant), 
-                      data = acqdat, family = "binomial",
-                      control = glmerControl(optimizer = "bobyqa"))
-summary(dsfMod3.cage)
-
-
-#### Contrasts for across cage main effect
-cageContrast <- rbind("FTP - FWP" = c(0,1,0,-1),
-                      "FTD - FWD" = c(1,0,-1,0))
-cageContrTest <- glht(dsfMod3.cage, linfct = cageContrast)
-summary(cageContrTest)
-# Doesn't work. Need to figure out how to use glht with ANCOVA
 
 
 #############################################################################################################
@@ -105,8 +95,7 @@ summary(cageContrTest)
 
 xfpopdat <- acqdat %>% dplyr::filter(., !is.na(source.plant.pop))
 
-# Opimizer engine to use
-optimizer <- "bobyqa"
+# Note on optimizers: tested bobyqa extensively and Nelder_Mead had fewer convergence issues. Stick with Nelder_Mead
 
 xfpopModFull <- glmer(test.plant.infection ~ genotype*std.distance*std.log.source.plant.pop*std.log.meancfu + (1|plant), 
                       data = xfpopdat, family = "binomial",
@@ -143,12 +132,13 @@ AICctab(xfpopModFull, xfpopMod2, xfpopMod3, xfpopMod4, xfpopMod.G, base = TRUE)
 xfpopMod4 %>% summary()
 
 #### Model selection when dropping interactions
-xfpopMod2.noIntrxn <- glmer(test.plant.infection ~ genotype + std.log.source.plant.pop + std.log.meancfu + (1|plant), 
+xfpopMod4.noIntrxn <- glmer(test.plant.infection ~ genotype + std.log.source.plant.pop + (1|plant), 
                             data = xfpopdat, family = "binomial",
                             control = glmerControl(optimizer = "Nelder_Mead"))
                             # control = glmerControl(optimizer = "optimx",
                             #                        optCtrl = list(method = optimizer)))
-AICctab(xfpopMod2, xfpopMod2.noIntrxn, base = TRUE)
+AICctab(xfpopMod4, xfpopMod4.noIntrxn, base = TRUE)
+# Best model includes genotype-source plant interaction
 
 #### Assessing sample size
 plants <- as.data.frame(table(acqdat$rep, acqdat$genotype))
@@ -168,6 +158,16 @@ acqdat %>% group_by(genotype) %>% summarise(mean = mean(predTrans), se = sd(pred
 # model with distance
 # acqdat$predTrans <- predict(dsfMod2, type = "response", re.form = NA)
 # acqdat %>% group_by(genotype) %>% summarise(mean = mean(predTrans), se = sd(predTrans)/sqrt(length(predTrans)))
+
+
+#### Looking at false negatives in xf vector and xf source plant pops
+xfpopdat$vector.infection <- xfpopdat %>% with(., ifelse(meancfu > 0, 1, 0))
+# In table(), first element is on the side, second element is on the top
+table(xfpopdat$test.plant.infection, xfpopdat$vector.infection)
+
+xfpopdat$source.plant.infection <- xfpopdat %>% with(., ifelse(source.plant.pop > 0, 1, 0))
+table(xfpopdat$test.plant.infection, xfpopdat$source.plant.infection)
+
 
 ########################################################################################
 #### Figures for transmission results
@@ -189,19 +189,45 @@ transBarplot <- ggplot(transPerc, aes(x=trt.full,y=perc)) +
         panel.grid.minor = element_blank(),
         #panel.border = element_blank(),
         panel.background = element_blank()) 
+
+transBarplot
 ggsave("results/transmission_barplot.jpg", plot = transBarplot,
        width = 5, height = 4, units = "in")  
+
+## Plot transmission and just genotype
+transPerc2 <- acqdat %>% group_by(genotype) %>% summarise(perc = (sum(test.plant.infection)/length(test.plant.infection))*100)
+transPerc2$trt <- ifelse(transPerc2$genotype == "FT", "DSF", "WT")
+
+transBarplot2 <- ggplot(transPerc2, aes(x=trt,y=perc)) +
+  geom_bar(position=position_dodge(), stat = "identity",
+           fill = "black",
+           size = 1.4) +
+  ylab("% test plants infected") + 
+  ylim(c(0,75)) +
+  xlab("Source plant genotype") +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #panel.border = element_blank(),
+        panel.background = element_blank(),
+        axis.text=element_text(size=20),
+        axis.title=element_text(size=22)) 
+
+transBarplot2
+ggsave("results/transmission_barplot_just_genotype.jpg", plot = transBarplot2,
+       width = 7, height = 7, units = "in")  
 
 
 ## Distance and genotype
 ## Since distance is not significant, don't need any model fit lines
 #xdist <- runif(nrow(acqdat), min(acqdat$distance, na.rm=TRUE), max(acqdat$distance, na.rm=TRUE))
 acqdat$trans.dummy <- ifelse(acqdat$genotype == "FW", acqdat$test.plant.infection,
-                             ifelse(acqdat$test.plant.infection == 0, 0.05, 0.95))
+                             ifelse(acqdat$test.plant.infection == 0, 0.04, 0.96))
 
 tiff("results/DSF_transmission_distance_plot_monochrome.tif")
   plot(acqdat[acqdat$genotype == "FW",]$distance, jitter(acqdat[acqdat$genotype == "FW",]$trans.dummy, amount = 0),
-       cex.axis = 1.3, cex.lab = 1.3, cex = 1.3,
+       cex.axis = 1.4, cex.lab = 1.6, cex = 1.6,
        ylim = c(0,1), xlim = c(0,100), pch = 1, col = "black",
        ylab = "Probability of transmission", xlab = "Distance from inoculation point (cm)")
   points(acqdat[acqdat$genotype == "FT",]$distance, jitter(acqdat[acqdat$genotype == "FT",]$trans.dummy, amount = 0), 
@@ -212,17 +238,17 @@ tiff("results/DSF_transmission_distance_plot_monochrome.tif")
   #       lty = 2, lwd = 2, col = "black")
 dev.off()
 
-#plot(acqdat$distance, acqdat$predTrans, pch = 2)
+plot(acqdat$distance, acqdat$predTrans, pch = 2)
 
 
 #### Plot of vector xf pops vs transmission
 tiff("results/DSF_transmission_vector_xfpops_plot_monochrome.tif")
   plot(acqdat[acqdat$genotype == "FW",]$log.meancfu, jitter(acqdat[acqdat$genotype == "FW",]$trans.dummy, amount = 0),
-       cex.axis = 1.3, cex.lab = 1.3, cex = 1.3,
+       cex.axis = 1.4, cex.lab = 1.6, cex = 1.6,
        ylim = c(0,1), 
        #xlim = c(0,120), 
        pch = 1, col = "black",
-       ylab = "Probability of transmission", xlab = "Xylella populations in vectors (log10 transformed)")
+       ylab = "Probability of transmission", xlab = "Xylella populations in vectors (CFU, log10 transformed)")
   points(acqdat[acqdat$genotype == "FT",]$log.meancfu, jitter(acqdat[acqdat$genotype == "FT",]$trans.dummy, amount = 0), 
          pch = 2, col = "black")
   lines(smooth.spline(acqdat[acqdat$genotype == "FW",]$log.meancfu, acqdat[acqdat$genotype == "FW",]$predTrans, tol = 1e-6, nknots = 4), 
@@ -233,13 +259,16 @@ dev.off()
 
 
 #### Plot of Xf source plant pops vs transmission
-xfpopdat$predTrans2 <- predict(xfpopMod2, type = "response", re.form = NA)
+xfpopdat$trans.dummy <- ifelse(xfpopdat$genotype == "FW", xfpopdat$test.plant.infection,
+                               ifelse(xfpopdat$test.plant.infection == 0, 0.04, 0.96))
+xfpopdat$predTrans2 <- predict(xfpopMod4, type = "response", re.form = NA)
 
 tiff("results/DSF_transmission_sourcepop_plot_monochrome.tif")
-  plot(jitter(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, amount = 0), jitter(xfpopdat[xfpopdat$genotype == "FW",]$trans.dummy, amount = 0),
-       cex.axis = 1.3, cex.lab = 1, cex = 1.3,
+  plot(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, jitter(xfpopdat[xfpopdat$genotype == "FW",]$trans.dummy, amount = 0),
+       cex.axis = 1.4, cex.lab = 1.6, cex = 1.6,
        ylim = c(0,1), xlim = c(0,10), pch = 1, col = "black",
-       ylab = "Probability of transmission", xlab = "X. fastidiosa populations in source plant (CFU/g, log10 transformed)")
+       ylab = "Probability of transmission", 
+       xlab = "Xylella populations in source plant\n(CFU/g, log10 transformed)")
   points(jitter(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, amount = 0), jitter(xfpopdat[xfpopdat$genotype == "FT",]$trans.dummy, amount = 0), 
          pch = 2, col = "black")
   lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FW",]$predTrans2, nknots = 4, tol = 1e-10), 
@@ -298,33 +327,81 @@ tiff("results/source_vs_vector_scatterplots.tif")
 dev.off()
 
 
+#####################################################################################################################
+#### Analysis of transmission without zeros
 
-###########################################################################
+acqdatNZ <- acqdat %>% dplyr::filter(., meancfu > 0)
+
+#### Transmission analysis without source plant populations
+#### GLMM with cage nested in plant 
+dsfModDistance <- glmer(test.plant.infection ~ inoculation.date + genotype*std.distance*std.log.meancfu + (1|plant), 
+                        data = acqdatNZ, family = "binomial",
+                        control = glmerControl(optimizer = "bobyqa"))
+dsfMod2 <- glmer(test.plant.infection ~ genotype*std.distance + (1|plant), 
+                 data = acqdatNZ, family = "binomial",
+                 control = glmerControl(optimizer = "bobyqa"))
+dsfMod3 <- glmer(test.plant.infection ~ genotype*std.log.meancfu + (1|plant), 
+                 data = acqdatNZ, family = "binomial",
+                 control = glmerControl(optimizer = "bobyqa"))
+dsfMod.G <- glmer(test.plant.infection ~ genotype + (1|plant), 
+                  data = acqdatNZ, family = "binomial",
+                  control = glmerControl(optimizer = "bobyqa"))
+
+# Compare reduced models to both full model with distance and with cage
+AICctab(dsfModDistance, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
+# dsfMod.G seems best -- only genotype, no distance or vector CFU effect
+plot(dsfMod.G)
+summary(dsfMod.G)
+
+#### Plot of vector xf pops vs transmission excluding zeros
+acqdatNZ$trans.dummy <- ifelse(acqdatNZ$genotype == "FW", acqdatNZ$test.plant.infection,
+                               ifelse(acqdatNZ$test.plant.infection == 0, 0.04, 0.96))
+acqdatNZ$predTrans <- predict(dsfMod.G, type = "response", re.form = NA)
+
+tiff("results/DSF_transmission_vector_xfpops_plot_non-zero.tif")
+  plot(acqdatNZ[acqdatNZ$genotype == "FW",]$log.meancfu, jitter(acqdatNZ[acqdatNZ$genotype == "FW",]$trans.dummy, amount = 0),
+       cex.axis = 1.3, cex.lab = 1.3, cex = 1.3,
+       ylim = c(0,1), xlim = c(3,5), 
+       pch = 1, col = "black",
+       ylab = "Probability of transmission", xlab = "Xylella populations in vectors (CFU, log10 transformed)")
+  points(acqdatNZ[acqdatNZ$genotype == "FT",]$log.meancfu, jitter(acqdatNZ[acqdatNZ$genotype == "FT",]$trans.dummy, amount = 0), 
+         pch = 2, col = "black")
+# No lines because effect is not significant
+# lines(smooth.spline(acqdatNZ[acqdatNZ$genotype == "FW",]$log.meancfu, acqdatNZ[acqdatNZ$genotype == "FW",]$predTrans, tol = 1e-6, nknots = 4), 
+#       lty = 1, lwd = 2, col = "black")
+# lines(smooth.spline(acqdatNZ[acqdatNZ$genotype == "FT",]$log.meancfu, acqdatNZ[acqdatNZ$genotype == "FT",]$predTrans, tol = 1e-6, nknots = 4), 
+#       lty = 2, lwd = 2, col = "black")
+dev.off()
+
+
+##############################################################################################################
 #### Analysis of Source plant Xf populations
-
-# # Number of infections, by genotype and plant position
-# infdat <- ppdat[ppdat$source.infected == 1,]
-# table(infdat$Genotype, infdat$Cage)
-# chisq.test(infdat$Genotype, infdat$Cage, simulate.p.value = TRUE)
+##############################################################################################################
 
 # Xf population size in source plant by genotype and distance of all plants
-sourcepopMod <- lmer(log.source.plant.pop ~ genotype*std.distance + (1|plant), 
+sourcepopMod1 <- lmer(log.source.plant.pop ~ genotype*std.distance + (1|plant), 
                       data = xfpopdat,
-                      control = lmerControl(optimizer = "bobyqa"))
+                      control = lmerControl(optimizer = "Nelder_Mead"))
                       # control = glmerControl(optimizer = "optimx",
                       #                        optCtrl = list(method = "bobyqa")))
+sourcepopMod2 <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plant), 
+                      data = xfpopdat,
+                      control = lmerControl(optimizer = "Nelder_Mead"))
+                      # control = glmerControl(optimizer = "optimx",
+                      #                        optCtrl = list(method = "bobyqa")))
+AICctab(sourcepopMod1, sourcepopMod2, base = TRUE)
+# The models are pretty much equal; go with model 1
+plot(sourcepopMod1)
+summary(sourcepopMod1)
 
-plot(sourcepopMod)
-summary(sourcepopMod)
-
-xfpopdat$predSourcePop <- predict(sourcepopMod, type = "response", re.form = NA)
+xfpopdat$predSourcePop <- predict(sourcepopMod1, type = "response", re.form = NA)
 # source plant populations and distance from inoculation
 tiff("results/source_plant_pop_distance_plot.tif")
   plot(x = jitter(xfpopdat[xfpopdat$genotype == "FW",]$distance, amount = 0), y = jitter(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, amount = 0),
-       cex.axis = 1.3, cex.lab = 1, cex = 1.3,
-       #ylim = c(0,1), xlim = c(0,10), 
+       cex.axis = 1.4, cex.lab = 1.2, cex = 1.8,
+       ylim = c(0,9), xlim = c(0,85), 
        pch = 1, col = "black",
-       xlab = "Distance from inoculation (cm)", ylab = "X. fastidiosa populations in source plant (CFU/g, log10 transformed)")
+       xlab = "Distance from inoculation (cm)", ylab = "Xylella populations in source plant (CFU/g, log10)")
   points(x = jitter(xfpopdat[xfpopdat$genotype == "FT",]$distance, amount = 0), y = jitter(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, amount = 0), 
          pch = 2, col = "black")
   lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FW",]$distance, xfpopdat[xfpopdat$genotype == "FW",]$predSourcePop, nknots = 4, tol = 1e-10), 
@@ -334,35 +411,101 @@ tiff("results/source_plant_pop_distance_plot.tif")
 dev.off()
 
 
+#######################################################################################
+#### Without source.plant.pop zeros
+xfpopdatNZ <- xfpopdat %>% dplyr::filter(., source.plant.pop > 0)
+
+sourcepopModNZ <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plant), 
+                     data = xfpopdatNZ,
+                     control = lmerControl(optimizer = "Nelder_Mead"))
+# control = glmerControl(optimizer = "optimx",
+#                        optCtrl = list(method = "bobyqa")))
+plot(sourcepopModNZ)
+summary(sourcepopModNZ)
+
+xfpopdatNZ$predSourcePop <- predict(sourcepopModNZ, type = "response", re.form = NA)
+# source plant populations and distance from inoculation
+tiff("results/source_plant_pop_distance_plot_non-zero.tif")
+  plot(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$distance, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, amount = 0),
+       cex.axis = 1.3, cex.lab = 1, cex = 1.6,
+       ylim = c(5,9), xlim = c(0,85), 
+       pch = 1, col = "black",
+       xlab = "Distance from inoculation (cm)", ylab = "Xylella populations in source plant (CFU/g, log10 transformed)")
+  points(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$distance, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, amount = 0), 
+         pch = 2, col = "black")
+  lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$distance, xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$predSourcePop, nknots = 4, tol = 1e-10), 
+        lty = 1, lwd = 2, col = "black")
+  lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$distance, xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$predSourcePop, nknots = 4, tol = 1e-10), 
+        lty = 2, lwd = 2, col = "black")
+dev.off()
+
+
 ############################################################################################################
 #### Analysis of Xf populations in vectors
+############################################################################################################
 
-xfvectorMod1 <- lmer(log.meancfu ~ genotype*distance*log.source.plant.pop + (1|plant),
+xfvectorMod1 <- lmer(log.meancfu ~ genotype*std.distance*std.log.source.plant.pop + (1|plant),
                     data = xfpopdat,
-                    control = lmerControl(optimizer = "bobyqa"))
-xfvectorMod2 <- lmer(log.meancfu ~ genotype*log.source.plant.pop + (1|plant),
+                    control = lmerControl(optimizer = "Nelder_Mead"))
+xfvectorMod2 <- lmer(log.meancfu ~ genotype*std.log.source.plant.pop + (1|plant),
                      data = xfpopdat,
-                     control = lmerControl(optimizer = "bobyqa"))
-AICctab(xfvectorMod1, xfvectorMod2, base = TRUE)
+                     control = lmerControl(optimizer = "Nelder_Mead"))
+xfvectorMod3 <- lmer(log.meancfu ~ genotype + std.log.source.plant.pop + (1|plant),
+                     data = xfpopdat,
+                     control = lmerControl(optimizer = "Nelder_Mead"))
+AICctab(xfvectorMod1, xfvectorMod2, xfvectorMod3, base = TRUE)
 # Dropping distance is clearly better
-plot(xfvectorMod2)
-summary(xfvectorMod2)
+plot(xfvectorMod3)
+summary(xfvectorMod3)
 
 # Plotting
-xfpopdat$predVectorPop <- predict(xfvectorMod, type = "response", re.form = NA)
+xfpopdat$predVectorPop <- predict(xfvectorMod3, type = "response", re.form = NA)
 # Xf populations in vectors and in source plants from inoculation
 tiff("results/xf_vector_source_plant_plot.tif")
   plot(x = jitter(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdat[xfpopdat$genotype == "FW",]$log.meancfu, amount = 0),
-       cex.axis = 1.3, cex.lab = 1, cex = 1.3,
+       cex.axis = 1.4, cex.lab = 1.2, cex = 1.8,
        #ylim = c(0,1), xlim = c(0,10), 
        pch = 1, col = "black",
-       ylab = "X. fastidiosa populations in vectors (CFU, log10 transformed)", xlab = "X. fastidiosa populations in source plant (CFU/g, log10 transformed)")
+       ylab = "Xylella populations in vectors (CFU, log10)", xlab = "Xylella populations in source plant (CFU/g, log10)")
   points(x = jitter(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdat[xfpopdat$genotype == "FT",]$log.meancfu, amount = 0), 
          pch = 2, col = "black")
-  lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FW",]$predVectorPop, nknots = 4, tol = 1e-10), 
+  lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FW",]$predVectorPop, nknots = 4, tol = 1e-10),
         lty = 1, lwd = 2, col = "black")
-  lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10), 
+  lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10),
         lty = 2, lwd = 2, col = "black")
+dev.off()
+
+
+###########################################################################################################
+#### Analysis of Xf populations in vectors without zeros
+xfpopdatNZ <- acqdatNZ %>% dplyr::filter(., !is.na(source.plant.pop) & source.plant.pop > 0)
+
+xfvectorMod1 <- lmer(std.log.meancfu ~ genotype*std.distance*std.log.source.plant.pop + (1|plant),
+                     data = xfpopdatNZ,
+                     control = lmerControl(optimizer = "Nelder_Mead"))
+xfvectorMod2 <- lmer(std.log.meancfu ~ genotype*std.log.source.plant.pop + (1|plant),
+                     data = xfpopdatNZ,
+                     control = lmerControl(optimizer = "Nelder_Mead"))
+AICctab(xfvectorMod1, xfvectorMod2, base = TRUE)
+# Keeping distance is better
+plot(xfvectorMod1)
+summary(xfvectorMod1)
+
+# Plotting -- model fit lines not necessary as relationship is not significant
+#xfpopdatNZ$predVectorPop <- predict(xfvectorMod, type = "response", re.form = NA)
+# Xf populations in vectors and in source plants from inoculation
+tiff("results/xf_vector_source_plant_plot_non-zero.tif")
+plot(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.meancfu, amount = 0),
+     cex.axis = 1.3, cex.lab = 1, cex = 1.3,
+     #ylim = c(0,1), xlim = c(0,10), 
+     pch = 1, col = "black",
+     ylab = "X. fastidiosa populations in vectors (CFU, log10 transformed)", xlab = "X. fastidiosa populations in source plant (CFU/g, log10 transformed)")
+points(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.meancfu, amount = 0), 
+       pch = 2, col = "black")
+# lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$predVectorPop, nknots = 4, tol = 1e-10), 
+#       lty = 1, lwd = 2, col = "black")
+# lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10), 
+#       lty = 2, lwd = 2, col = "black")
 dev.off()
 
 
@@ -375,79 +518,3 @@ infected <- acqdat %>% dplyr::filter(., meancfu > 0 & test.plant.infection == 1)
 outsamples <- rbind(falseNegatives[1:6,c("meancfu", "sample")], infected[1:6,c("meancfu", "sample")])
 write.csv(outsamples, file = "output/vector_xf_false_negatives.csv", row.names = FALSE)
 
-
-
-#####################################################################################################################
-#### Analyses without zeros
-#####################################################################################################################
-acqdatNZ <- acqdat %>% dplyr::filter(., meancfu > 0)
-
-#### Transmission analysis without source plant populations
-#### GLMM with cage nested in plant 
-dsfModDistance <- glmer(test.plant.infection ~ inoculation.date + genotype*std.distance*std.log.meancfu + (1|plant), 
-                        data = acqdat, family = "binomial",
-                        control = glmerControl(optimizer = "bobyqa"))
-dsfMod2 <- glmer(test.plant.infection ~ genotype*std.distance + (1|plant), 
-                 data = acqdat, family = "binomial",
-                 control = glmerControl(optimizer = "bobyqa"))
-dsfMod3 <- glmer(test.plant.infection ~ genotype*std.log.meancfu + (1|plant), 
-                 data = acqdat, family = "binomial",
-                 control = glmerControl(optimizer = "bobyqa"))
-dsfMod.G <- glmer(test.plant.infection ~ genotype + (1|plant), 
-                  data = acqdat, family = "binomial",
-                  control = glmerControl(optimizer = "bobyqa"))
-
-# Compare reduced models to both full model with distance and with cage
-AICctab(dsfModDistance, dsfModCage, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
-# dsfMod3 seems best -- no distance/cage effect
-plot(dsfMod3)
-summary(dsfMod3)
-
-#### Plot of vector xf pops vs transmission excluding zeros
-tiff("results/DSF_transmission_vector_xfpops_plot_non-zero.tif")
-  plot(acqdatNZ[acqdatNZ$genotype == "FW",]$log.meancfu, jitter(acqdatNZ[acqdatNZ$genotype == "FW",]$trans.dummy, amount = 0),
-       cex.axis = 1.3, cex.lab = 1.3, cex = 1.3,
-       ylim = c(0,1), 
-       #xlim = c(0,120), 
-       pch = 1, col = "black",
-       ylab = "Probability of transmission", xlab = "Xylella populations in vectors (log10 transformed)")
-  points(acqdatNZ[acqdatNZ$genotype == "FT",]$log.meancfu, jitter(acqdatNZ[acqdatNZ$genotype == "FT",]$trans.dummy, amount = 0), 
-       pch = 2, col = "black")
-  lines(smooth.spline(acqdatNZ[acqdatNZ$genotype == "FW",]$log.meancfu, acqdatNZ[acqdatNZ$genotype == "FW",]$predTrans, tol = 1e-6, nknots = 4), 
-        lty = 1, lwd = 2, col = "black")
-  lines(smooth.spline(acqdatNZ[acqdatNZ$genotype == "FT",]$log.meancfu, acqdatNZ[acqdatNZ$genotype == "FT",]$predTrans, tol = 1e-6, nknots = 4), 
-        lty = 2, lwd = 2, col = "black")
-dev.off()
-
-
-
-#### Analysis of Xf populations in vectors
-xfpopdatNZ <- acqdatNZ %>% dplyr::filter(., !is.na(source.plant.pop) & source.plant.pop > 0)
-
-xfvectorMod1 <- lmer(log.meancfu ~ genotype*distance*log.source.plant.pop + (1|plant),
-                     data = xfpopdatNZ,
-                     control = lmerControl(optimizer = "bobyqa"))
-xfvectorMod2 <- lmer(log.meancfu ~ genotype*log.source.plant.pop + (1|plant),
-                     data = xfpopdatNZ,
-                     control = lmerControl(optimizer = "bobyqa"))
-AICctab(xfvectorMod1, xfvectorMod2, base = TRUE)
-# Dropping distance is clearly better
-plot(xfvectorMod2)
-summary(xfvectorMod2)
-
-# Plotting -- model fit lines not necessary as relationship is not significant
-#xfpopdatNZ$predVectorPop <- predict(xfvectorMod, type = "response", re.form = NA)
-# Xf populations in vectors and in source plants from inoculation
-tiff("results/xf_vector_source_plant_plot_non-zero.tif")
-  plot(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.meancfu, amount = 0),
-       cex.axis = 1.3, cex.lab = 1, cex = 1.3,
-       #ylim = c(0,1), xlim = c(0,10), 
-       pch = 1, col = "black",
-       ylab = "X. fastidiosa populations in vectors (CFU, log10 transformed)", xlab = "X. fastidiosa populations in source plant (CFU/g, log10 transformed)")
-  points(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.meancfu, amount = 0), 
-         pch = 2, col = "black")
-  # lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$predVectorPop, nknots = 4, tol = 1e-10), 
-#       lty = 1, lwd = 2, col = "black")
-# lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10), 
-#       lty = 2, lwd = 2, col = "black")
-dev.off()
