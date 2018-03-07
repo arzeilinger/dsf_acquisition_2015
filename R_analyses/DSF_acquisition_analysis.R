@@ -27,7 +27,7 @@ acqdat <- acqdat %>% full_join(., pcrMean, by = "sample")
 #### standardize continuous covariates
 acqdat$log.source.plant.pop <- log10(acqdat$source.plant.pop + 1)
 acqdat$log.meancfu <- log10(acqdat$meancfu + 1)
-covars <- c("distance", "aap", "log.source.plant.pop", "log.meancfu")
+covars <- c("distance", "aap", "source.plant.pop", "log.source.plant.pop", "log.meancfu")
 covars.i <- as.numeric(sapply(covars, function(x) which(names(acqdat) == x), simplify = TRUE))
 for(i in covars.i){
   var.i <- names(acqdat)[i]
@@ -75,7 +75,7 @@ dsfMod.G <- glmer(test.plant.infection ~ genotype + (1|plant),
                 control = glmerControl(optimizer = "Nelder_Mead"))
 
 # Compare reduced models to both full model with distance and with cage
-AICctab(dsfModDistance, dsfModCage, dsfModFull, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
+AICctab(dsfModFull, dsfMod2, dsfMod3, dsfMod.G, base = TRUE)
 # dsfMod3 seems best -- no distance/cage effect
 plot(dsfMod3)
 summary(dsfMod3)
@@ -84,9 +84,8 @@ summary(dsfMod3)
 dsfMod3.noInterxn <- glmer(test.plant.infection ~ genotype + std.log.meancfu + (1|plant), 
                                       data = acqdat, family = "binomial",
                                       control = glmerControl(optimizer = "Nelder_Mead"))
-AICctab(dsfModDistance, dsfModFull, dsfMod2, dsfMod3, dsfMod.G, dsfMod3.noInterxn, base = TRUE)
+AICctab(dsfModFull, dsfMod2, dsfMod3, dsfMod.G, dsfMod3.noInterxn, base = TRUE)
 summary(dsfMod3.noInterxn)
-
 
 
 #############################################################################################################
@@ -106,8 +105,8 @@ xfpopModFull <- glmer(test.plant.infection ~ genotype*std.distance*std.log.sourc
 xfpopMod2 <- glmer(test.plant.infection ~ genotype*std.log.source.plant.pop*std.log.meancfu + (1|plant), 
                    data = xfpopdat, family = "binomial",
                    control = glmerControl(optimizer = "Nelder_Mead"))
-                   # control = glmerControl(optimizer = "optimx",
-                   #                        optCtrl = list(method = optimizer)))
+                   #control = glmerControl(optimizer = "optimx",
+                   #                       optCtrl = list(method = "spg")))
 # Model without vector xf pops
 xfpopMod3 <- glmer(test.plant.infection ~ genotype*std.log.source.plant.pop*std.distance + (1|plant), 
                    data = xfpopdat, family = "binomial",
@@ -137,7 +136,7 @@ xfpopMod4.noIntrxn <- glmer(test.plant.infection ~ genotype + std.log.source.pla
                             control = glmerControl(optimizer = "Nelder_Mead"))
                             # control = glmerControl(optimizer = "optimx",
                             #                        optCtrl = list(method = optimizer)))
-AICctab(xfpopMod4, xfpopMod4.noIntrxn, base = TRUE)
+AICctab(xfpopModFull, xfpopMod2, xfpopMod3, xfpopMod4, xfpopMod.G, xfpopMod4.noIntrxn, base = TRUE)
 # Best model includes genotype-source plant interaction
 
 #### Assessing sample size
@@ -168,6 +167,9 @@ table(xfpopdat$test.plant.infection, xfpopdat$vector.infection)
 xfpopdat$source.plant.infection <- xfpopdat %>% with(., ifelse(source.plant.pop > 0, 1, 0))
 table(xfpopdat$test.plant.infection, xfpopdat$source.plant.infection)
 
+## Summary of transmission for reduced data set
+transPercReduced <- xfpopdat %>% group_by(genotype) %>% summarise(perc = (sum(test.plant.infection)/length(test.plant.infection))*100,
+                                                                  n = sum(!is.na(test.plant.infection)))
 
 ########################################################################################
 #### Figures for transmission results
@@ -195,7 +197,8 @@ ggsave("results/transmission_barplot.jpg", plot = transBarplot,
        width = 5, height = 4, units = "in")  
 
 ## Plot transmission and just genotype
-transPerc2 <- acqdat %>% group_by(genotype) %>% summarise(perc = (sum(test.plant.infection)/length(test.plant.infection))*100)
+transPerc2 <- acqdat %>% group_by(genotype) %>% summarise(perc = (sum(test.plant.infection)/length(test.plant.infection))*100,
+                                                          n = sum(!is.na(test.plant.infection)))
 transPerc2$trt <- ifelse(transPerc2$genotype == "FT", "DSF", "WT")
 
 transBarplot2 <- ggplot(transPerc2, aes(x=trt,y=perc)) +
@@ -217,6 +220,7 @@ transBarplot2 <- ggplot(transPerc2, aes(x=trt,y=perc)) +
 transBarplot2
 ggsave("results/transmission_barplot_just_genotype.jpg", plot = transBarplot2,
        width = 7, height = 7, units = "in")  
+
 
 
 ## Distance and genotype
@@ -390,11 +394,11 @@ sourcepopMod2 <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plant)
                       # control = glmerControl(optimizer = "optimx",
                       #                        optCtrl = list(method = "bobyqa")))
 AICctab(sourcepopMod1, sourcepopMod2, base = TRUE)
-# The models are pretty much equal; go with model 1
-plot(sourcepopMod1)
-summary(sourcepopMod1)
+# Best model is sourcepopMod2
+plot(sourcepopMod2)
+summary(sourcepopMod2)
 
-xfpopdat$predSourcePop <- predict(sourcepopMod1, type = "response", re.form = NA)
+xfpopdat$predSourcePop <- predict(sourcepopMod2, type = "response", re.form = NA)
 # source plant populations and distance from inoculation
 tiff("results/source_plant_pop_distance_plot.tif")
   plot(x = jitter(xfpopdat[xfpopdat$genotype == "FW",]$distance, amount = 0), y = jitter(xfpopdat[xfpopdat$genotype == "FW",]$log.source.plant.pop, amount = 0),
@@ -410,6 +414,11 @@ tiff("results/source_plant_pop_distance_plot.tif")
         lty = 2, lwd = 2, col = "black")
 dev.off()
 
+
+## Summary of source.plant.pop between genotypes
+summaryPlantPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(source.plant.pop, na.rm = TRUE),
+                                                                 n = sum(!is.na(source.plant.pop)),
+                                                                 se = sd(source.plant.pop, na.rm = TRUE)/sqrt(n))
 
 #######################################################################################
 #### Without source.plant.pop zeros
@@ -454,9 +463,10 @@ xfvectorMod3 <- lmer(log.meancfu ~ genotype + std.log.source.plant.pop + (1|plan
                      data = xfpopdat,
                      control = lmerControl(optimizer = "Nelder_Mead"))
 AICctab(xfvectorMod1, xfvectorMod2, xfvectorMod3, base = TRUE)
-# Dropping distance is clearly better
+# Dropping distance is clearly better, dropping interaction too
 plot(xfvectorMod3)
 summary(xfvectorMod3)
+
 
 # Plotting
 xfpopdat$predVectorPop <- predict(xfvectorMod3, type = "response", re.form = NA)
@@ -474,6 +484,11 @@ tiff("results/xf_vector_source_plant_plot.tif")
   lines(smooth.spline(xfpopdat[xfpopdat$genotype == "FT",]$log.source.plant.pop, xfpopdat[xfpopdat$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10),
         lty = 2, lwd = 2, col = "black")
 dev.off()
+
+## Summary of vector pop between genotypes
+summaryVectorPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(meancfu, na.rm = TRUE),
+                                                                 n = sum(!is.na(meancfu)),
+                                                                 se = sd(meancfu, na.rm = TRUE)/sqrt(n))
 
 
 ###########################################################################################################
