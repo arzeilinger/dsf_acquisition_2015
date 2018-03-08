@@ -152,7 +152,7 @@ chisq.test(acqdat$genotype, acqdat$test.plant.infection)
 
 #### Predicted (marginal) means by genotype
 # model with cage
-acqdat$predTrans <- predict(dsfMod3, type = "response", re.form = NA)
+acqdat$predTrans <- predict(dsfMod3.noInterxn, type = "response", re.form = NA)
 acqdat %>% group_by(genotype) %>% summarise(mean = mean(predTrans), se = sd(predTrans)/sqrt(length(predTrans)))
 # model with distance
 # acqdat$predTrans <- predict(dsfMod2, type = "response", re.form = NA)
@@ -261,6 +261,27 @@ tiff("results/DSF_transmission_vector_xfpops_plot_monochrome.tif")
         lty = 2, lwd = 2, col = "black")
 dev.off()
 
+## In ggplot
+vectorTransPlot <- ggplot(data = acqdat) +
+  geom_point(data = acqdat[acqdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 1) +
+  geom_point(data = acqdat[acqdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 2) +
+  stat_smooth(data = acqdat[acqdat$genotype == "FW",], aes(y = predTrans, x = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 1) +
+  stat_smooth(data = acqdat[acqdat$genotype == "FT",], aes(y = predTrans, x = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 2) +
+  xlab("Xylella populations in vectors (CFU, log10)") + ylab("Probability of transmission") +
+  theme_bw() + 
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=16),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        panel.background = element_blank()) 
+vectorTransPlot
+
+ggsave(filename = "results/DSF_transmission_vector_xfpops_ggplot.tiff",
+       plot = vectorTransPlot,
+       width = 7, height = 7, units = "in")
+
 
 #### Plot of Xf source plant pops vs transmission
 xfpopdat$trans.dummy <- ifelse(xfpopdat$genotype == "FW", xfpopdat$test.plant.infection,
@@ -282,6 +303,26 @@ tiff("results/DSF_transmission_sourcepop_plot_monochrome.tif")
 dev.off()
 
 
+## In ggplot
+plantTransPlot <- ggplot(data = xfpopdat) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 1) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 2) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = predTrans2, x = log.source.plant.pop), method = "lm", se = FALSE, col = "black", lty = 1) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = predTrans2, x = log.source.plant.pop), method = "lm", se = FALSE, col = "black", lty = 2) +
+  xlab("Xylella populations in source plants (CFU/g, log10)") + ylab("Probability of transmission") +
+  theme_bw() + 
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=16),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        panel.background = element_blank()) 
+plantTransPlot
+
+ggsave(filename = "results/DSF_transmission_sourcepop_ggplot.tiff",
+       plot = plantTransPlot,
+       width = 7, height = 7, units = "in")
 
 #### Tri-variate plot with distance, Xf pop, and P(trans)
 library(akima)
@@ -414,6 +455,27 @@ tiff("results/source_plant_pop_distance_plot.tif")
         lty = 2, lwd = 2, col = "black")
 dev.off()
 
+## In ggplot
+sourceDistancePlot <- ggplot(data = xfpopdat) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 1) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 2) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), method = "lm", se = FALSE, col = "black", lty = 1) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), method = "lm", se = FALSE, col = "black", lty = 2) +
+  xlab("Distance from inoculation point (cm)") + ylab("Xylella populations in source plants (CFU/g, log10)") +
+  theme_bw() + 
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=16),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        panel.background = element_blank()) 
+sourceDistancePlot
+
+ggsave(filename = "results/source_plant_pop_distance_ggplot.tiff",
+       plot = sourceDistancePlot,
+       width = 7, height = 7, units = "in")
+
 
 ## Summary of source.plant.pop between genotypes
 summaryPlantPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(source.plant.pop, na.rm = TRUE),
@@ -485,6 +547,29 @@ tiff("results/xf_vector_source_plant_plot.tif")
         lty = 2, lwd = 2, col = "black")
 dev.off()
 
+
+## In ggplot
+vectorSourcePlot <- ggplot(data = xfpopdat) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 1) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 2) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(x = log.source.plant.pop, y = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 1) +
+  stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(x = log.source.plant.pop, y = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 2) +
+  ylab("Xylella populations in vectors (CFU, log10)") + xlab("Xylella populations in source plants (CFU/g, log10)") +
+  theme_bw() + 
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=16),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        panel.background = element_blank()) 
+vectorSourcePlot
+
+ggsave(filename = "results/xf_vector_source_plant_ggplot.tiff",
+       plot = vectorSourcePlot,
+       width = 7, height = 7, units = "in")
+
+
 ## Summary of vector pop between genotypes
 summaryVectorPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(meancfu, na.rm = TRUE),
                                                                  n = sum(!is.na(meancfu)),
@@ -522,6 +607,18 @@ points(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop,
 # lines(smooth.spline(xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$log.source.plant.pop, xfpopdatNZ[xfpopdatNZ$genotype == "FT",]$predVectorPop, nknots = 4, tol = 1e-10), 
 #       lty = 2, lwd = 2, col = "black")
 dev.off()
+
+
+
+######################################################################################################################
+#### Combining plots into Figure 1 for ms
+fig1 <- plot_grid(sourceDistancePlot, vectorSourcePlot, vectorTransPlot, plantTransPlot,
+                  align = "v", ncol = 2, nrow = 2, labels = "auto")
+fig1
+ggsave(filename = "results/figure1.tiff",
+       plot = fig1,
+       width = 12, height = 12, units = "in", dpi = 600)
+
 
 
 
