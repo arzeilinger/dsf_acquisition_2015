@@ -7,6 +7,11 @@ lapply(my.packages, require, character.only = TRUE)
 
 source("R_functions/standardize.R")
 
+#### Load data sets that have been cleaned and with model predictions
+acqdat <- readRDS("output/dsf_acquisition_data_set.rds")
+xfpopdat <- readRDS("output/dsf_acquisition_data_set_complete.rds")
+
+
 #### Acquisition data set
 acqdat <- read.csv("data/DSF_acquisition_data.csv")
 summary(acqdat)
@@ -171,6 +176,7 @@ table(xfpopdat$test.plant.infection, xfpopdat$source.plant.infection)
 transPercReduced <- xfpopdat %>% group_by(genotype) %>% summarise(perc = (sum(test.plant.infection)/length(test.plant.infection))*100,
                                                                   n = sum(!is.na(test.plant.infection)))
 
+
 ########################################################################################
 #### Figures for transmission results
 ## Pecent transmission between genotypes
@@ -263,8 +269,8 @@ dev.off()
 
 ## In ggplot
 vectorTransPlot <- ggplot(data = acqdat) +
-  geom_point(data = acqdat[acqdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 1) +
-  geom_point(data = acqdat[acqdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 2) +
+  geom_point(data = acqdat[acqdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 16) +
+  geom_point(data = acqdat[acqdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.meancfu), size = 4, pch = 1) +
   stat_smooth(data = acqdat[acqdat$genotype == "FW",], aes(y = predTrans, x = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = acqdat[acqdat$genotype == "FT",], aes(y = predTrans, x = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 2) +
   xlab("Xylella populations in vectors (CFU, log10)") + ylab("Probability of transmission") +
@@ -305,8 +311,8 @@ dev.off()
 
 ## In ggplot
 plantTransPlot <- ggplot(data = xfpopdat) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 1) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 2) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 16) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = jitter(test.plant.infection, amount = 0.05), x = log.source.plant.pop), size = 4, pch = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = predTrans2, x = log.source.plant.pop), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = predTrans2, x = log.source.plant.pop), method = "lm", se = FALSE, col = "black", lty = 2) +
   xlab("Xylella populations in source plants (CFU/g, log10)") + ylab("Probability of transmission") +
@@ -457,8 +463,8 @@ dev.off()
 
 ## In ggplot
 sourceDistancePlot <- ggplot(data = xfpopdat) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 1) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 2) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 16) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), method = "lm", se = FALSE, col = "black", lty = 2) +
   xlab("Distance from inoculation point (cm)") + ylab("Xylella populations in source plants (CFU/g, log10)") +
@@ -486,15 +492,23 @@ summaryPlantPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(sou
 #### Without source.plant.pop zeros
 xfpopdatNZ <- xfpopdat %>% dplyr::filter(., source.plant.pop > 0)
 
-sourcepopModNZ <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plant), 
-                     data = xfpopdatNZ,
-                     control = lmerControl(optimizer = "Nelder_Mead"))
+# Xf population size in source plant by genotype and distance of all plants
+sourcepopModnz1 <- lmer(log.source.plant.pop ~ genotype*std.distance + (1|plant), 
+                      data = xfpopdatNZ,
+                      control = lmerControl(optimizer = "Nelder_Mead"))
 # control = glmerControl(optimizer = "optimx",
 #                        optCtrl = list(method = "bobyqa")))
-plot(sourcepopModNZ)
-summary(sourcepopModNZ)
+sourcepopModnz2 <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plant), 
+                      data = xfpopdatNZ,
+                      control = lmerControl(optimizer = "Nelder_Mead"))
+# control = glmerControl(optimizer = "optimx",
+#                        optCtrl = list(method = "bobyqa")))
+AICctab(sourcepopModnz1, sourcepopModnz2, base = TRUE)
+# Best model is sourcepopModnz2
+plot(sourcepopModnz2)
+summary(sourcepopModnz2)
 
-xfpopdatNZ$predSourcePop <- predict(sourcepopModNZ, type = "response", re.form = NA)
+xfpopdatNZ$predSourcePop <- predict(sourcepopModnz2, type = "response", re.form = NA)
 # source plant populations and distance from inoculation
 tiff("results/source_plant_pop_distance_plot_non-zero.tif")
   plot(x = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$distance, amount = 0), y = jitter(xfpopdatNZ[xfpopdatNZ$genotype == "FW",]$log.source.plant.pop, amount = 0),
@@ -510,6 +524,33 @@ tiff("results/source_plant_pop_distance_plot_non-zero.tif")
         lty = 2, lwd = 2, col = "black")
 dev.off()
 
+
+## In ggplot
+sourceDistancePlot <- ggplot(data = xfpopdat) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 16) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(y = log.source.plant.pop, x = distance), size = 4, pch = 1) +
+  stat_smooth(data = xfpopdatNZ[xfpopdatNZ$genotype == "FW",], aes(y = predSourcePop, x = distance), method = "lm", se = FALSE, col = "black", lty = 1) +
+  stat_smooth(data = xfpopdatNZ[xfpopdatNZ$genotype == "FT",], aes(y = predSourcePop, x = distance), method = "lm", se = FALSE, col = "black", lty = 2) +
+  xlab("Distance from inoculation point (cm)") + ylab("Xylella populations in source plants (CFU/g, log10)") +
+  theme_bw() + 
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(size=14),
+        axis.title = element_text(size=16),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        panel.background = element_blank()) 
+sourceDistancePlot
+
+ggsave(filename = "results/source_plant_pop_distance_nonzero_ggplot.tiff",
+       plot = sourceDistancePlot,
+       width = 7, height = 7, units = "in")
+
+
+## Summary of source.plant.pop between genotypes
+summaryPlantPop <- xfpopdatNZ %>% group_by(genotype) %>% summarise(mean = mean(source.plant.pop, na.rm = TRUE),
+                                                                 n = sum(!is.na(source.plant.pop)),
+                                                                 se = sd(source.plant.pop, na.rm = TRUE)/sqrt(n))
 
 ############################################################################################################
 #### Analysis of Xf populations in vectors
@@ -550,8 +591,8 @@ dev.off()
 
 ## In ggplot
 vectorSourcePlot <- ggplot(data = xfpopdat) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 1) +
-  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 2) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FW",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 16) +
+  geom_point(data = xfpopdat[xfpopdat$genotype == "FT",], aes(x = log.source.plant.pop, y = log.meancfu), size = 4, pch = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FW",], aes(x = log.source.plant.pop, y = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = xfpopdat[xfpopdat$genotype == "FT",], aes(x = log.source.plant.pop, y = log.meancfu), method = "lm", se = FALSE, col = "black", lty = 2) +
   ylab("Xylella populations in vectors (CFU, log10)") + xlab("Xylella populations in source plants (CFU/g, log10)") +
@@ -575,6 +616,9 @@ summaryVectorPop <- xfpopdat %>% group_by(genotype) %>% summarise(mean = mean(me
                                                                  n = sum(!is.na(meancfu)),
                                                                  se = sd(meancfu, na.rm = TRUE)/sqrt(n))
 
+## Save acqdat and xfpopdat data.frames
+saveRDS(acqdat, file = "output/dsf_acquisition_data_set.rds")
+saveRDS(xfpopdat, file = "output/dsf_acquisition_data_set_complete.rds")
 
 ###########################################################################################################
 #### Analysis of Xf populations in vectors without zeros
