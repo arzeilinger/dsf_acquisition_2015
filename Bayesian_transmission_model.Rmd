@@ -266,7 +266,7 @@ niter <-  110000
 nburnin <- 10000
 set.seed(0)
 ## Run MCMC and save 2nd chain for summary
-system.time(samples <- runMCMC(Cmcmc, niter, nburnin=nburnin, nchains=2, samplesAsCodaMCMC=TRUE))
+system.time(samples <- runMCMC(Cmcmc, niter, nburnin=nburnin, nchains=3, samplesAsCodaMCMC=TRUE))
 samples2 <- as.matrix(Cmcmc$mvSamples2)
 ```
 
@@ -493,7 +493,7 @@ beta6 <- res[row.names(res) == "b[6]", "median"]
 beta8 <- res[row.names(res) == "b[8]", "median"]
 
 # Given a value near the median xf_source_plant value:
-median_xf_source <- median(data$xf_source_plant, na.rm = TRUE)
+median_xf_source <- data$xf_source_plant[data$xf_source_plant > 0] %>% median(., na.rm = TRUE)
 example_xf_source <- round(median_xf_source, -6)
 # The predicted population size in vectors would be:
 pred_xf_vector_dsf <- beta5 + beta7*example_xf_source
