@@ -9,3 +9,6 @@ R_analyses/DSF_acquisition_analysis.R includes code using a series of GLMM model
 R_functions/qpcrFunctions.R provides functions for merging Cq/N0 values from LinRegPCR with sample names and serial dilution data. Xylella CFUs can then be calculated from the standard curve and N0 estimates.
 
 R_analyses/qpcr_calculates.R uses calculates Xylella CFU from qPCR output for the DSF acquisition experiment.
+
+First archived release: 
+[![DOI](https://zenodo.org/badge/83522974.svg)](https://zenodo.org/badge/latestdoi/83522974)
