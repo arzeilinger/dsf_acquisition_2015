@@ -804,15 +804,16 @@ plotdf <- rbind(dsfdf, wtdf)
 
 #### Plotting probability of transmission vs vector xf populations
 vectorTransPlot <- ggplot(data = plotdf) +
-  geom_point(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_vector_log10), size = 4, pch = 16) +
-  geom_point(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_vector_log10), size = 4, pch = 1) +
+  geom_point(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_vector_log10), size = 2, pch = 16) +
+  geom_point(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_vector_log10), size = 2, pch = 1) +
   stat_smooth(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_vector_log10), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_vector_log10), method = "lm", se = FALSE, col = "black", lty = 2) +
-  xlab("Xylella populations in vectors (CFU, log10)") + ylab("Probability of transmission") + ylim(0,1) +
+  xlab("Xylella populations in vectors \n (CFU, log10)") + 
+  ylab("Probability of transmission") + ylim(0,1) +
   theme_bw() + 
   theme(axis.line = element_line(colour = "black"),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=16),
+        axis.text = element_text(size=8),
+        axis.title = element_text(size=10),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "black"),
@@ -834,15 +835,16 @@ plotdf$xf_source_log10[plotdf$xf_source_log10 < 0] <- 0
 
 ## p_infect vs. xf_source in ggplot
 sourceTransPlot <- ggplot(data = plotdf) +
-  geom_point(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_source_log10), size = 4, pch = 16) +
-  geom_point(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_source_log10), size = 4, pch = 1) +
+  geom_point(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_source_log10), size = 2, pch = 16) +
+  geom_point(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_source_log10), size = 2, pch = 1) +
   stat_smooth(data = plotdf[plotdf$genotype == "WT",], aes(y = p_infect, x = xf_source_log10), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = plotdf[plotdf$genotype == "DSF",], aes(y = p_infect, x = xf_source_log10), method = "lm", se = FALSE, col = "black", lty = 2) +
-  xlab("Xylella populations in source plants (CFU/g, log10)") + ylab("Probability of transmission") + ylim(0,1) +
+  xlab("Xylella populations in source plant \n (CFU/g, log10)") + 
+  ylab("Probability of transmission") + ylim(0,1) +
   theme_bw() + 
   theme(axis.line = element_line(colour = "black"),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=16),
+        axis.text = element_text(size=8),
+        axis.title = element_text(size=10),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "black"),
@@ -907,8 +909,8 @@ but much smaller mode for WT source plants.
 set.seed(0)
 pinfect_df <- data.frame(p_infect_dsf = sample(pinfect_dsf,length(pinfect_wt)),
                          p_infect_wt  = pinfect_wt)
-samplesPlot(pinfect_df, c('p_infect_wt', 'p_infect_dsf'), width = 4, height = 2, traceplot = FALSE, legend = FALSE,
-              file = "results/posterior_density_ptransmission_plot.pdf")
+samplesPlot(pinfect_df, c('p_infect_wt', 'p_infect_dsf'), width = 12, height = 12, traceplot = FALSE, legend = FALSE,
+              file = "results/posterior_density_ptransmission_plot.tiff")
 ```
 
 
@@ -991,18 +993,19 @@ pred_nz <- pred_df %>% filter(xf_source_log10 > 0)
 
 distanceSourcePlot <- ggplot(data = pred_df) +
   geom_point(data = pred_df[pred_df$genotype == "WT",], 
-             aes(y = xf_source_log10, x = distance), size = 4, pch = 16) +
+             aes(y = xf_source_log10, x = distance), size = 2, pch = 16) +
   geom_point(data = pred_df[pred_df$genotype == "DSF",], 
-             aes(y = xf_source_log10, x = distance), size = 4, pch = 1) +
+             aes(y = xf_source_log10, x = distance), size = 2, pch = 1) +
   stat_smooth(data = pred_df[pred_df$genotype == "WT",],
               aes(y = xf_plant_med_log10, x = distance), method = "lm", se = FALSE, col = "black", lty = 1) +
   stat_smooth(data = pred_df[pred_df$genotype == "DSF",],
               aes(y = xf_plant_med_log10, x = distance), method = "lm", se = FALSE, col = "black", lty = 2) +
-  ylab("Xylella populations in source plants (CFU/g, log10)") + xlab("Distance from inoculation point (cm)") + #ylim(0,1) +
+  ylab("Xylella populations in source plants \n (CFU/g, log10)") + 
+  xlab("Distance from inoculation point (cm)") + #ylim(0,1) +
   theme_bw() + 
   theme(axis.line = element_line(colour = "black"),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=15),
+        axis.text = element_text(size=8),
+        axis.title = element_text(size=10),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "black"),
@@ -1020,18 +1023,20 @@ pred_nz2 <- pred_nz %>% dplyr::filter(xf_vector_log10 > 0)
 
 sourceVectorPlot <- ggplot(data = pred_df) +
   geom_point(data = pred_df[pred_df$genotype == "WT",], 
-             aes(y = xf_vector_log10, x = xf_source_log10), size = 4, pch = 16) +
+             aes(y = xf_vector_log10, x = xf_source_log10), size = 2, pch = 16) +
   geom_point(data = pred_df[pred_df$genotype == "DSF",], 
-             aes(y = xf_vector_log10, x = xf_source_log10), size = 4, pch = 1) +
+             aes(y = xf_vector_log10, x = xf_source_log10), size = 2, pch = 1) +
   stat_smooth(data = pred_df[pred_df$genotype == "WT",],
               aes(y = xf_vector_med_log10, x = xf_plant_med_log10), method = "lm", se = FALSE, fullrange = TRUE, col = "black", lty = 1) +
   stat_smooth(data = pred_df[pred_df$genotype == "DSF",],
               aes(y = xf_vector_med_log10, x = xf_plant_med_log10), method = "lm", se = FALSE, fullrange = TRUE, col = "black", lty = 2) +
-  xlab("Xylella populations in source plants (CFU/g, log10)") + ylab("Xylella populations in vectors (CFU, log10)") + ylim(c(0,5)) +
+  xlab("Xylella populations in source plants \n (CFU/g, log10)") + 
+  ylab("Xylella populations in vectors \n (CFU, log10)") + 
+  ylim(c(0,5)) +
   theme_bw() + 
   theme(axis.line = element_line(colour = "black"),
-        axis.text = element_text(size=14),
-        axis.title = element_text(size=16),
+        axis.text = element_text(size=8),
+        axis.title = element_text(size=10),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_rect(colour = "black"),
@@ -1047,11 +1052,11 @@ ggsave(filename = "results/sourcexf_distance_plot.tiff",
 #### Combining plots into Figure 2 for ms
 library(cowplot)
 fig2 <- plot_grid(distanceSourcePlot, sourceVectorPlot, vectorTransPlot, sourceTransPlot,
-                  align = "v", ncol = 2, nrow = 2, labels = "auto", label_size = 22)
-fig2
+                  align = "v", ncol = 2, nrow = 2, labels = "auto", label_size = 12)
+#fig2
 ggsave(filename = "results/figure2.tiff",
        plot = fig2,
-       width = 12, height = 12, units = "in", dpi = 600)
+       width = 15, height = 15, units = "cm", dpi = 300, compression = "lzw")
 
 
 ```

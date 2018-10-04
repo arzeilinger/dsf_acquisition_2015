@@ -2,11 +2,11 @@
 
 #### samplesPlot function
 samplesPlot <- function(samples, var=colnames(samples), ind=NULL, burnin=NULL, width=7, height=4, legend=TRUE, legend.location='topright', traceplot=TRUE, densityplot=TRUE, file=NULL) {
-  if(!is.null(file)) pdf(file, width=width, height=height) else
+  if(!is.null(file)) tiff(file, width=width, height=height, res = 300, compression = "lzw", units = "cm") else
     if(inherits(try(knitr::opts_chunk$get('dev'), silent=TRUE), 'try-error') || is.null(knitr::opts_chunk$get('dev')))   ## if called from Rmarkdown/knitr
       dev.new(height=height, width=width)
   par.save <- par(no.readonly = TRUE)
-  par(mfrow=c(1,traceplot+densityplot), cex=0.7, cex.main=1.5, cex.axis=0.9, lab=c(3,3,7), mgp=c(0,0.4,0), mar=c(3,3,2,0.6), oma=c(0,0,0,0), tcl=-0.3, bty='l')
+  par(mfrow=c(1,traceplot+densityplot), cex=0.7, cex.main=1.5, cex.axis=0.9, cex.lab=1.5, lab=c(3,3,7), mgp=c(1.5,0.4,0), mar=c(3,3,2,0.6), oma=c(0,0,0,0), tcl=-0.3, bty='l')
   ## process samples
   var <- gsub('\\[', '\\\\\\[', gsub('\\]', '\\\\\\]', var))   ## add \\ before any '[' or ']' appearing in var
   var <- unlist(lapply(var, function(n) grep(paste0('^', n,'(\\[.+\\])?$'), colnames(samples), value=TRUE)))  ## expanded any indexing
@@ -29,10 +29,10 @@ samplesPlot <- function(samples, var=colnames(samples), ind=NULL, burnin=NULL, w
     for(i in 1:nparam) {
       d <- density(samples[,i])
       xMin <- min(xMin,d$x); xMax <- max(xMax,d$x); yMax <- max(yMax, d$y) }
-    plot(1, xlim=c(xMin,xMax), ylim=c(0,yMax), type='n', main='', xlab='', ylab='', yaxt='n')
+    plot(1, xlim=c(xMin,xMax), ylim=c(0,yMax), type='n', main='', xlab = "Posterior probability", ylab = "Density", yaxt='n')
     for(i in 1:nparam)
       polygon(density(samples[,i]), col=grey.colors(nparam, alpha=0.5)[i], border="black",
-              main = "", xlab = "Posterior probability", ylab = "Density")
+              main = "")
       # To keep transparent border
       # polygon(density(samples[,i]), col=grey.colors(nparam, alpha=0.5)[i], border=grey.colors(nparam, alpha=0.5)[i])
     if(legend & !is.null(dimnames(samples)) & is.character(dimnames(samples)[[2]]))

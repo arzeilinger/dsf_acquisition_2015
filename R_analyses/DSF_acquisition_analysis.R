@@ -1,7 +1,7 @@
 #### Preliminary look at DSF-BGSS acquisition experiment data
 
 rm(list = ls())
-my.packages <- c("lattice", "tidyr", "ggplot2", "gplots", "lme4", 
+my.packages <- c("lattice", "tidyr", "ggplot2", "gplots", "lme4", "pROC",
                  "dplyr", "multcomp", "optimx", "bbmle", "lmerTest")
 lapply(my.packages, require, character.only = TRUE)
 
@@ -100,6 +100,18 @@ AICctab(dsfModFull, dsfMod2, dsfMod3, dsfMod.G, dsfMod3.noInterxn, base = TRUE)
 summary(dsfMod3.noInterxn) # Best model is without interaction
 
 
+# ROC curve
+p <- as.numeric(predict(dsfMod3.noInterxn, type = "response")>0.5)
+mean(p==acqdat$test.plant.infection)
+table(p,acqdat$test.plant.infection)
+
+transVectorROC <- roc(response = acqdat$test.plant.infection, predictor = p)
+tiff("results/trans_vector_roc_curve.tiff", compression = "lzw")
+  plot(transVectorROC, ylim = c(0,1))
+dev.off()
+
+
+
 #############################################################################################################
 #### Analysis of transmission inluding source plant xf pop
 #############################################################################################################
@@ -129,6 +141,17 @@ xfpopMod.G <- glmer(test.plant.infection ~ genotype + (1|plant),
 AICctab(xfpopModFull, xfpopMod2, xfpopMod3, xfpopMod4, xfpopMod.G, base = TRUE)
 # xfpopMod2 and xfpopMod4 are equivalent but xfpopMod2 has convergence issues, go with xfpopMod4
 xfpopMod4 %>% summary()
+
+## ROC curve
+p <- as.numeric(predict(xfpopMod4, type = "response")>0.5)
+mean(p==xfpopdat$test.plant.infection)
+table(p,xfpopdat$test.plant.infection)
+
+transSourceROC <- roc(response = xfpopdat$test.plant.infection, predictor = p)
+tiff("results/trans_source_roc_curve.tiff", compression = "lzw")
+  plot(transSourceROC, ylim = c(0,1))
+dev.off()
+
 
 #### Model selection when dropping interactions
 xfpopMod4.noIntrxn <- glmer(test.plant.infection ~ genotype + std.log.source.plant.pop + (1|plant), 
@@ -322,9 +345,16 @@ sourcepopModnz2 <- lmer(log.source.plant.pop ~ genotype + std.distance + (1|plan
 #                        optCtrl = list(method = "bobyqa")))
 AICctab(sourcepopModnz1, sourcepopModnz2, base = TRUE)
 # Best model is sourcepopModnz2
-plot(sourcepopModnz2)
-summary(sourcepopModnz2)
 
+# Residuals vs. predicted plot for Appendix
+sourcePlantPlotResid <-   plot(xfpopMod4, pch = 16, col = "black", xlab = "Model predictions", ylab = "Residuals")
+
+tiff("results/source_plant_pop_distance_residuals.tiff", compression = "lzw")
+  plot(sourcepopModnz2, pch = 16, col = "black", ylab = "Residuals", xlab = "Model predictions")
+dev.off()
+
+# Model results
+summary(sourcepopModnz2)
 xfpopdatNZ$predSourcePop <- predict(sourcepopModnz2, type = "response", re.form = NA)
 
 
@@ -370,7 +400,14 @@ xfvectorMod3 <- lmer(log.meancfu ~ genotype + std.log.source.plant.pop + (1|plan
                      control = lmerControl(optimizer = "Nelder_Mead"))
 AICctab(xfvectorMod1, xfvectorMod2, xfvectorMod3, base = TRUE)
 # Dropping distance is clearly better, dropping interaction too
-plot(xfvectorMod3)
+
+# Plot residuals and predictions
+xfvectorPlotResid <-   plot(xfvectorMod3, pch = 16, col = "black", ylab = "Residuals", xlab = "Model predictions")
+
+tiff("results/xf_vector_residuals.tif", compression = "lzw")
+  plot(xfvectorMod3, pch = 16, col = "black", ylab = "Residuals", xlab = "Model predictions")
+dev.off()
+
 summary(xfvectorMod3)
 
 
@@ -442,11 +479,12 @@ summary(xfvectorMod1)
 
 
 ######################################################################################################################
-#### Combining plots into Figure 1 for ms
-fig1 <- plot_grid(sourceDistancePlot, vectorSourcePlot, vectorTransPlot, plantTransPlot,
+#### Combining plots into Supplementary Figure S2 for ms
+figs2 <- plot_grid(sourceDistancePlot, vectorSourcePlot, vectorTransPlot, plantTransPlot,
                   align = "v", ncol = 2, nrow = 2, labels = "AUTO", label_size = 22)
-fig1
-ggsave(filename = "results/figure1.tiff",
-       plot = fig1,
+figs2
+ggsave(filename = "results/figureS2.tiff",
+       plot = figs2,
        width = 12, height = 12, units = "in", dpi = 600)
+
 
